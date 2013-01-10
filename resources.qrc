@@ -1,0 +1,41 @@
+<RCC>
+    <qresource prefix="/">
+        <file>icons/audio.png</file>
+        <file>icons/available.png</file>
+        <file>icons/deprecated_available.png</file>
+        <file>icons/deprecated_installed.png</file>
+        <file>icons/development.png</file>
+        <file>icons/drivers.png</file>
+        <file>icons/fonts.png</file>
+        <file>icons/games.png</file>
+        <file>icons/graphics.png</file>
+        <file>icons/install.png</file>
+        <file>icons/installed.png</file>
+        <file>icons/internet.png</file>
+        <file>icons/logo-gnome.png</file>
+        <file>icons/logo-kde.png</file>
+        <file>icons/logo-linux.png</file>
+        <file>icons/logo-lxde.png</file>
+        <file>icons/logo-xfce.png</file>
+        <file>icons/mail.png</file>
+        <file>icons/proprietary.png</file>
+        <file>icons/remove.png</file>
+        <file>icons/science.png</file>
+        <file>icons/server.png</file>
+        <file>icons/system.png</file>
+        <file>icons/terminal.png</file>
+        <file>icons/theme.png</file>
+        <file>icons/unknown.png</file>
+        <file>icons/update.png</file>
+        <file>icons/applications-system.png</file>
+        <file>icons/clear.png</file>
+        <file>icons/refresh.png</file>
+        <file>icons/settings.png</file>
+        <file>icons/run.png</file>
+        <file>icons/application-exit.png</file>
+        <file>icons/trash-empty.png</file>
+        <file>icons/edit-clear.png</file>
+        <file>icons/office.png</file>
+        <file>icons/available-file.png</file>
+    </qresource>
+</RCC>
