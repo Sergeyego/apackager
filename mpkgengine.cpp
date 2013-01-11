@@ -30,9 +30,10 @@ void MpkgEngine::updatePkgList()
     PACKAGE p;
     QString linkList;
     QString tagList;
-    QString info;
+    QString info, description;
     int lastIndex, installedIndex;
     int state;
+    packageDistroVersionList.clear();
 
     for (unsigned int i=0; i< n; ++i){
         p=packageList[i];
@@ -40,10 +41,12 @@ void MpkgEngine::updatePkgList()
         pkg.version=QString::fromStdString(p.get_fullversion());
         pkg.short_discription=QString::fromStdString(p.get_short_description());
 
-        pkg.tags=":";
+        pkg.tags.clear();
+        tagList.clear();
         tags = p.get_tags();
         for (unsigned int n=0; n<tags.size(); ++n) {
-            pkg.tags+=(QString::fromStdString(tags[n]))+":";
+            pkg.tags.push_back(QString::fromStdString(tags[n]));
+            tagList.push_back(pkg.tags[n]+" ");
         }
 
         lastIndex=packageList.getMaxVersionNumber(p.get_name());
@@ -61,25 +64,24 @@ void MpkgEngine::updatePkgList()
         }
         pkg.state=state;
 
+        pkg.packageDistroVersion=QString::fromStdString(p.package_distro_version);
+        if (packageDistroVersionList.indexOf(pkg.packageDistroVersion)==-1) packageDistroVersionList.push_back(pkg.packageDistroVersion);
+
         linkList.clear();
         for (unsigned int n=0; n<p.get_locations().size(); ++n) {
             linkList.push_back("<a href=\"" + QString::fromStdString(p.get_locations().at(n).get_full_url() + p.get_filename()) + "\">" + QString::fromStdString(p.get_filename()) + "</a><br>");
         }
-        tagList.clear();
-        for (unsigned int n=0; n<tags.size(); ++n) {
-            tagList.push_back(QString::fromStdString(tags.at(n)));
-                if (n<tags.size()-1) tagList += " ";
-        }
-        tagList += "<br>";
         if (!tagList.isEmpty()) tagList = "<hr><big><b>" + tr("Tags") + ":</b></big> " + tagList;
-        info = ("<b><big>" + pkg.name + " " + pkg.version + "</b></big><br><hr>" + QString::fromStdString(p.get_description()) + \
+        description=QString::fromStdString(p.get_description());
+        if (description.isEmpty()) description=pkg.short_discription;
+        info = ("<b><big>" + pkg.name + " " + pkg.version + "</b></big><hr>" + description + \
                 "<hr><b>" + tr("Package size: ") + "</b>" + QString::fromStdString(humanizeSize(p.get_compressed_size())) + \
                 "<br><b>" + tr("Installed size: ") + "</b>" + QString::fromStdString(humanizeSize(p.get_installed_size())) + \
-                "<br><b>" + tr("Distrib: ") + "</b>" + QString::fromStdString(p.package_distro_version) + \
+                "<br><b>" + tr("Distrib: ") + "</b>" + pkg.packageDistroVersion + \
                 "<br><b>" + tr("Maintainer: ") + "</b>" + QString::fromStdString(p.get_packager()) + \
                 "<br><b>" + tr("File name: ") + "</b>" + QString::fromStdString(p.get_filename()) + \
                 "<br><b>MD5: </b>" + QString::fromStdString(p.get_md5()) +
-                tagList + "<hr><big><b>" + tr("Download links:") + "</b></big><br>" + linkList);
+                tagList + "<hr><big><b>" + tr("Download links: ") + "</b></big><br>" + linkList);
         pkg.info=info;
 
         deps=p.get_dependencies();
@@ -93,9 +95,8 @@ void MpkgEngine::updatePkgList()
     core->get_available_tags(&available_tags);
     tagsList.clear();
     sort(available_tags.begin(), available_tags.end());
-    for (unsigned int i=0; i<available_tags.size(); ++i) {
-        tagsList.push_back(QString::fromStdString(available_tags[i]));
-    }
+    tagsList=toQStringList(available_tags);
+    packageDistroVersionList.sort();
     qDebug()<<"update finished";
     emit updateFinished();
 }
@@ -192,6 +193,12 @@ void MpkgEngine::setAbortActions(bool value)
     qDebug()<<"ABORT: "<<value;
 }
 
+void MpkgEngine::downloadRepositoryList()
+{
+    actGetRepositorylist();
+    emit sigUpdRep();
+}
+
 bool MpkgEngine::renderDepTrackerData()
 {
     bool ret=core->DepTracker->renderData()==0;
@@ -203,27 +210,44 @@ bool MpkgEngine::renderDepTrackerData()
         text.truncate(text.size()-2);
         text+=". "+QString::number(failureList.size())+tr(" packages has unresolvable dependencies.");
         emit sigError(tr("Dependency error"),text,QString::fromStdString(depErrorTable.print()));
-        emit commitFinished();
     }
     return ret;
 }
 
-QStringList MpkgEngine::updateBlackList()
+QStringList MpkgEngine::toQStringList(vector<string> &str)
 {
     QStringList list;
-    vector<string> blacklist = ReadFileStrings("/etc/mpkg-update-blacklist");
-    for (int i=0; i<blacklist.size(); ++i)
-        list.push_back(QString::fromStdString(blacklist.at(i)));
+    for (unsigned int i=0; i<str.size(); ++i)
+        list.push_back(QString::fromStdString(str.at(i)));
     return list;
+}
+
+void MpkgEngine::fromQStringList(QStringList &qlist, vector<string> &str)
+{
+    str.clear();
+    for (unsigned int i=0; i<qlist.size(); ++i)
+        str.push_back(qlist.at(i).toStdString());
+}
+
+QStringList MpkgEngine::updateBlackList()
+{
+    vector<string> blacklist = ReadFileStrings("/etc/mpkg-update-blacklist");
+    return toQStringList(blacklist);
 }
 
 QStringList MpkgEngine::removeBlacklist()
 {
-    QStringList list;
     vector<string> blacklist = ReadFileStrings("/etc/mpkg-remove-blacklist");
-    for (int i=0; i<blacklist.size(); ++i)
-        list.push_back(QString::fromStdString(blacklist.at(i)));
-    return list;
+    return toQStringList(blacklist);
+}
+
+void MpkgEngine::setBlacklists(QStringList &update, QStringList &remove)
+{
+    vector<string> updateBL, removeBL;
+    fromQStringList(update,updateBL);
+    fromQStringList(remove,removeBL);
+    WriteFileStrings("/etc/mpkg-update-blacklist", updateBL);
+    WriteFileStrings("/etc/mpkg-remove-blacklist", removeBL);
 }
 
 bool MpkgEngine::lockDataBase()
@@ -264,4 +288,35 @@ QString MpkgEngine::createCommitLists(QStringList &install, QStringList &remove,
     QString totalDownloadSize = QString::fromStdString(humanizeSize(dl_size));
     QString actionSummaryLabel=tr("<b>To be installed: </b>%1 packages<br><b>To be removed: </b>%2 packages<br><b>To be upgraded: </b>%3<br><b>Download size: </b>%4<br>%5<br>").arg(install.size()).arg(remove.size()).arg(upgrade.size()).arg(totalDownloadSize).arg(diskSpaceDiff);
     return actionSummaryLabel;
+}
+
+void MpkgEngine::getRepositoryList(QStringList &enabledRep, QStringList &disabledRep)
+{
+    vector<string> enabledRepositories = mpkgconfig::get_repositorylist();
+    vector<string> disabledRepositories = mpkgconfig::get_disabled_repositorylist();
+    enabledRep=toQStringList(enabledRepositories);
+    disabledRep=toQStringList(disabledRepositories);
+}
+
+void MpkgEngine::setRepositoryList(QStringList &enabledRep, QStringList &disabledRep)
+{
+    vector<string> enabled, disabled;
+    fromQStringList(enabledRep,enabled);
+    fromQStringList(disabledRep,disabled);
+    mpkgconfig::set_repositorylist(enabled, disabled);
+}
+
+QString MpkgEngine::getConfigValue(QString param)
+{
+    return QString::fromStdString(mConfig.getValue(param.toStdString()));
+}
+
+void MpkgEngine::setConfigValue(QString param, QString val)
+{
+    mConfig.setValue(param.toStdString(),val.toStdString());
+}
+
+QStringList MpkgEngine::pkgDistrList()
+{
+    return packageDistroVersionList;
 }

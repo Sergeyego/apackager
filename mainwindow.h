@@ -4,11 +4,11 @@
 #include <QtGui>
 #include "mpkgmodel.h"
 #include "mpkgengine.h"
-#include "settings.h"
 #include "commitdialog.h"
 #include "progresswidget.h"
 #include "mpkgthread.h"
 #include <QDataWidgetMapper>
+#include "mpkgsettings.h"
 
 namespace Ui {
     class MainWindowClass;
@@ -28,7 +28,6 @@ private:
     MpkgModel *pkgModel;
     MpkgProxyModel *pkgProxyModel;
     MpkgSearchModel *pkgSearchModel;
-    QSortFilterProxyModel *pkgTagFilterModel;
     MpkgEngine *engine;
     ProgressWidget *progress;
     MpkgErrorBox *errorBox;
@@ -66,6 +65,7 @@ private slots:
     void setTagsModel();
     void showError(QString title, QString text, QString details);
     void openFile();
+    void setRepFilter(int comboBoxIndex);
 };
 
 #endif // MAINWINDOW_H

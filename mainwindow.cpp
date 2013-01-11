@@ -36,10 +36,8 @@ MainWindow::MainWindow(QWidget *parent) :
     pkgProxyModel = new MpkgProxyModel(this);
     pkgProxyModel->setBlacklist(engine->updateBlackList());
     pkgProxyModel->setSourceModel(pkgModel);
-    pkgTagFilterModel = new QSortFilterProxyModel(this);
-    pkgTagFilterModel->setSourceModel(pkgProxyModel);
     pkgSearchModel = new MpkgSearchModel(this);
-    pkgSearchModel->setSourceModel(pkgTagFilterModel);
+    pkgSearchModel->setSourceModel(pkgProxyModel);
 
     ui->pkgView->setSelectionMode(QAbstractItemView::SingleSelection);
     ui->pkgView->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -84,7 +82,8 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->actionToolbar,SIGNAL(triggered(bool)),ui->toolBar,SLOT(setVisible(bool)));
     connect(ui->toolBar,SIGNAL(visibilityChanged(bool)),ui->actionToolbar,SLOT(setChecked(bool)));
     connect(ui->actionOpen,SIGNAL(triggered()),this,SLOT(openFile()));
-    connect(ui->actionAbaut,SIGNAL(triggered()),this,SLOT(about()));
+    connect(ui->actionAbout,SIGNAL(triggered()),this,SLOT(about()));
+    connect(ui->comboBoxDistr,SIGNAL(currentIndexChanged(int)),this,SLOT(setRepFilter(int)));
 }
 
 MainWindow::~MainWindow()
@@ -126,8 +125,7 @@ void MainWindow::saveSettings() {
 
 QModelIndex MainWindow::sourcePkgIndex(QModelIndex index)
 {
-    QModelIndex tagsModelIndex= pkgSearchModel->mapToSource(index);
-    QModelIndex proxyModelIndex= pkgTagFilterModel->mapToSource(tagsModelIndex);
+    QModelIndex proxyModelIndex= pkgSearchModel->mapToSource(index);
     return pkgProxyModel->mapToSource(proxyModelIndex);
 }
 
@@ -147,8 +145,9 @@ void MainWindow::runCommit()
 
 void MainWindow::pkgTagsFilter(QModelIndex tagIndex)
 {
-    pkgTagFilterModel->setFilterKeyColumn(ui->tagView->model()->data(ui->tagView->model()->index(tagIndex.row(),2)).toInt());
-    pkgTagFilterModel->setFilterRegExp(ui->tagView->model()->data(ui->tagView->model()->index(tagIndex.row(),1)).toString());
+    QStringList taglist=ui->tagView->model()->data(ui->tagView->model()->index(tagIndex.row(),1)).toStringList();
+    QStringList statelist=ui->tagView->model()->data(ui->tagView->model()->index(tagIndex.row(),2)).toStringList();
+    pkgProxyModel->setFilter(taglist,statelist);
 }
 
 void MainWindow::selectAll()
@@ -191,9 +190,11 @@ void MainWindow::chFilterColumn()
 
 void MainWindow::showSettings()
 {
-    SettingsDialog settings;
-    if (settings.exec()==QDialog::Accepted)
+    MpkgSettings settings(engine);
+    if (settings.exec()==QDialog::Accepted){
+        settings.save();
         pkgProxyModel->setBlacklist(engine->updateBlackList());
+    }
 }
 
 void MainWindow::updateSlot()
@@ -214,6 +215,9 @@ void MainWindow::updateFinishedSlot()
         ui->pkgView->setColumnWidth(1,100);
         ui->pkgView->setColumnWidth(2,200);
     }
+    ui->comboBoxDistr->clear();
+    ui->comboBoxDistr->addItem(tr("All repositories"));
+    ui->comboBoxDistr->addItems(engine->pkgDistrList());
     ui->toolBar->setEnabled(true);
     ui->centralWidget->setEnabled(true);
     ui->menuBar->setEnabled(true);
@@ -301,4 +305,10 @@ void MainWindow::openFile()
 {
     QStringList files=QFileDialog::getOpenFileNames(this, tr("Open File"),"/",tr("Packages *.txz(*.txz)"));
     installFiles(files);
+}
+
+void MainWindow::setRepFilter(int comboBoxIndex)
+{
+    QString filter=comboBoxIndex? ui->comboBoxDistr->currentText() : QString();
+    pkgProxyModel->setRepositoryFilter(filter);
 }

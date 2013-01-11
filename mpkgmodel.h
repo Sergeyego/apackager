@@ -50,6 +50,9 @@ private:
     bool hideInstalledDeprecated;
     bool hideUpdated;
     QStringList blackList;
+    QStringList tagFilterList;
+    QStringList stateFilterList;
+    QString repFilter;
 public slots:
     void setHideDeprecated(bool value);
     void setHideInstalled(bool value);
@@ -57,6 +60,8 @@ public slots:
     void setHideInstalledDeprecated(bool value);
     void setHideUpdated(bool value);
     void setBlacklist(QStringList list);
+    void setFilter(QStringList taglist, QStringList statelist);
+    void setRepositoryFilter(QString rep);
 };
 
 class MpkgSearchModel : public QSortFilterProxyModel
@@ -70,8 +75,8 @@ public:
 typedef struct{
     QString name;
     QIcon icon;
-    QString regExp;
-    int filterKeyColumn;
+    QStringList tagList;
+    QStringList stateList;
 } categoryData;
 
 class TagsModel : public QAbstractTableModel
@@ -101,6 +106,7 @@ public:
     int columnCount(const QModelIndex &parent = QModelIndex()) const;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
 private:
+    void addCategory(QString cat_name, QString cat_ico, QString cat_tags, QString cat_state);
     QVector<categoryData> catData;
 };
 

@@ -1,12 +1,13 @@
 #include "mpkgmodel.h"
-#define ICON_PREFIX QString(INSTALL_PREFIX) + QString("/share/mpkg/apackager/icons/")
+#define ICON_PREFIX QString(":/icons/")
+//QString(INSTALL_PREFIX) + QString("/share/mpkg/apackager/icons/")
 //QString(":/icons/")
 
 MpkgModel::MpkgModel(MpkgEngine *engine, QObject *parent) :
     QAbstractTableModel(parent)
 {
     mpkg=engine;
-    ccount=7;
+    ccount=8;
     loadPixmapList();
     header<<tr("Name")<<tr("Version")<<tr("Short description");
     connect(engine,SIGNAL(updateFinished()),this,SLOT(refresh()));
@@ -65,6 +66,9 @@ QVariant MpkgModel::data(const QModelIndex &index, int role) const
             break;
         case 6:
             value=mpkg->cacheBase[index.row()].dependency;
+            break;
+        case 7:
+            value=mpkg->cacheBase[index.row()].packageDistroVersion;
             break;
         default:
             value=QVariant();
@@ -145,14 +149,34 @@ bool MpkgProxyModel::filterAcceptsRow(int source_row, const QModelIndex &source_
 {
     int state=this->sourceModel()->data(this->sourceModel()->index(source_row,4)).toInt();
     QString name=this->sourceModel()->data(this->sourceModel()->index(source_row,0)).toString();
-    bool b=false;
+    QStringList pkgtags=this->sourceModel()->data(this->sourceModel()->index(source_row,3)).toStringList();
+    QString rep=this->sourceModel()->data(this->sourceModel()->index(source_row,7)).toString();;
+
+    bool isBlacklisted=false;
     int i=0;
-    while(!b && i<blackList.size() && state==7){
-        b=blackList.at(i)==name;
+    while(!isBlacklisted && i<blackList.size() && state==7){
+        isBlacklisted=blackList.at(i)==name;
         ++i;
     }
+
+    bool isTagFiltered(true);
+    if (!tagFilterList.isEmpty()){
+        for (int m=0; m<tagFilterList.size(); ++m)
+            for (int n=0; n<pkgtags.size(); ++n)
+                if (tagFilterList.at(m)==pkgtags.at(n)) isTagFiltered=false;
+    } else isTagFiltered=false;
+
+    bool isStateFiltered(true);
+    if (!stateFilterList.isEmpty()){
+        for(int k=0; k<stateFilterList.size(); ++k)
+            if (state==stateFilterList.at(k).toInt()) isStateFiltered=false;
+    } else isStateFiltered=false;
+
+    bool isRepFiltered=repFilter.isNull()? false : !(rep==repFilter);
+
     return !(state==6 && hideDeprecated) && !(state==1 && hideInstalled) && !(state==3 && hideNotInstalled)
-            && !(state==5 && hideInstalledDeprecated) && !(state==7 && hideUpdated) && !(b);
+            && !(state==5 && hideInstalledDeprecated) && !(state==7 && hideUpdated) && !(isBlacklisted)
+            && !(isTagFiltered) && !(isStateFiltered) && !(isRepFiltered);
 }
 
 void MpkgProxyModel::setHideDeprecated(bool value)
@@ -191,23 +215,44 @@ void MpkgProxyModel::setBlacklist(QStringList list)
     reset();
 }
 
+void MpkgProxyModel::setFilter(QStringList taglist, QStringList statelist)
+{
+    tagFilterList=taglist;
+    stateFilterList=statelist;
+    reset();
+}
+
+void MpkgProxyModel::setRepositoryFilter(QString rep)
+{
+    repFilter=rep;
+    reset();
+}
+
 TagsModel::TagsModel(MpkgEngine *engine, QObject *parent):QAbstractTableModel(parent)
 {
     mpkg=engine;
     categoryData data;
-    data.filterKeyColumn=4;
+
     data.name=tr("All packages");
-    data.regExp="";
+    data.tagList=QStringList();
+    data.stateList=QStringList();
     bonus.push_back(data);
+
     data.name=tr("Updates");
-    data.regExp=QString::number(ICONSTATE_UPDATE);
+    data.stateList<<QString::number(ICONSTATE_UPDATE);
     bonus.push_back(data);
+    data.stateList.clear();
+
     data.name=tr("Installed");
-    data.regExp=QString("[")+QString::number(ICONSTATE_INSTALLED)+QString::number(ICONSTATE_INSTALLED_DEPRECATED)+QString("]");
+    data.stateList<<QString::number(ICONSTATE_INSTALLED)<<QString::number(ICONSTATE_INSTALLED_DEPRECATED);
     bonus.push_back(data);
+    data.stateList.clear();
+
     data.name=tr("Not installed");
-    data.regExp=QString("[")+QString::number(ICONSTATE_AVAILABLE)+QString::number(ICONSTATE_AVAILABLE_DEPRECATED)+QString("]");
+    data.stateList<<QString::number(ICONSTATE_AVAILABLE)<<QString::number(ICONSTATE_AVAILABLE_DEPRECATED);
     bonus.push_back(data);
+    data.stateList.clear();
+
     connect(mpkg,SIGNAL(updateFinished()),this,SLOT(refresh()));
 }
 
@@ -230,6 +275,7 @@ QVariant TagsModel::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid()) return QVariant();
     QVariant value;
+    QStringList tag;
     if ((role==Qt::DisplayRole)||(role==Qt::EditRole)){
         int n=bonus.size();
         switch(index.column())
@@ -238,10 +284,15 @@ QVariant TagsModel::data(const QModelIndex &index, int role) const
                 value=(index.row()<n)? bonus[index.row()].name : tags[index.row()-n];
                 break;
             case 1:
-                value=(index.row()<n)? bonus[index.row()].regExp : QString(":"+tags[index.row()-n]+":");
+                if (index.row()<n) {
+                    value=bonus[index.row()].tagList;
+                }else {
+                    tag<<tags[index.row()-n];
+                    value=tag;
+                }
                 break;
             case 2:
-                value=(index.row()<n)? bonus[index.row()].filterKeyColumn : 3;
+            value=(index.row()<n)? bonus[index.row()].stateList : QStringList();
                 break;
             default:
                 value=QVariant();
@@ -259,116 +310,42 @@ void TagsModel::refresh()
 
 CategoryModel::CategoryModel(QObject *parent):QAbstractTableModel(parent)
 {
+    addCategory(tr("All packages"),"applications-system",QString(),QString());
+    addCategory(tr("Updates"),"update",QString(),QString::number(ICONSTATE_UPDATE));
+    addCategory(tr("Installed"),"installed",QString(),QString::number(ICONSTATE_INSTALLED)+","+QString::number(ICONSTATE_INSTALLED_DEPRECATED));
+    addCategory(tr("Not installed"),"available",QString(),QString::number(ICONSTATE_AVAILABLE)+","+QString::number(ICONSTATE_AVAILABLE_DEPRECATED));
+    addCategory(tr("Office"),"office","app-office",QString());
+    addCategory(tr("Emulations"),"system","app-emulation",QString());
+    addCategory(tr("Compat 32"),"system","compat32,x86",QString());
+    addCategory(tr("Console applications"),"terminal","console",QString());
+    addCategory(tr("Development"),"development","develop",QString());
+    addCategory(tr("Drivers"),"drivers","drivers",QString());
+    addCategory(tr("Games"),"games","games",QString());
+    addCategory(tr("Gnome"),"logo-gnome","gnome",QString());
+    addCategory(tr("KDE"),"logo-kde","kde4,kdei,kdel10n",QString());
+    addCategory(tr("LXDE"),"logo-lxde","lxde",QString());
+    addCategory(tr("Mail"),"mail","mail-client,mail-mta",QString());
+    addCategory(tr("Fonts"),"fonts","media-fonts",QString());
+    addCategory(tr("Graphics"),"graphics","media-gfx",QString());
+    addCategory(tr("Sound"),"audio","media-sound",QString());
+    addCategory(tr("Network"),"internet","network",QString());
+    addCategory(tr("Proprietary"),"proprietary","proprietary",QString());
+    addCategory(tr("Science"),"science","school",QString());
+    addCategory(tr("Server"),"server","server",QString());
+    addCategory(tr("Kernel"),"logo-linux","sys-kernel",QString());
+    addCategory(tr("System"),"system","sys-apps,sys-auth,sys-base,sys-boot,sys-devel,sys-fs,sys-kernel,sys-libs,sys-pkgtools,sys-power,sys-process",QString());
+    addCategory(tr("Themes"),"theme","themes",QString());
+    addCategory(tr("Utils"),"system","utils",QString());
+    addCategory(tr("XFCE"),"logo-xfce","xfce",QString());
+}
+
+void CategoryModel::addCategory(QString cat_name, QString cat_ico, QString cat_tags, QString cat_state)
+{
     categoryData data;
-    data.filterKeyColumn=4;
-    data.name=tr("All packages");
-    data.icon=QIcon(ICON_PREFIX+"applications-system.png");
-    data.regExp="";
-    catData.push_back(data);
-    data.name=tr("Updates");
-    data.icon=QIcon(ICON_PREFIX+"update.png");
-    data.regExp=QString::number(ICONSTATE_UPDATE);
-    catData.push_back(data);
-    data.name=tr("Installed");
-    data.icon=QIcon(ICON_PREFIX+"installed.png");
-    data.regExp=QString("[")+QString::number(ICONSTATE_INSTALLED)+QString::number(ICONSTATE_INSTALLED_DEPRECATED)+QString("]");
-    catData.push_back(data);
-    data.name=tr("Not installed");
-    data.icon=QIcon(ICON_PREFIX+"available.png");
-    data.regExp=QString("[")+QString::number(ICONSTATE_AVAILABLE)+QString::number(ICONSTATE_AVAILABLE_DEPRECATED)+QString("]");
-    catData.push_back(data);
-    data.filterKeyColumn=3;
-    data.name=tr("Office");
-    data.icon=QIcon(ICON_PREFIX+"office.png");
-    data.regExp=":app-office:";
-    catData.push_back(data);
-    data.name=tr("Emulations");
-    data.icon=QIcon(ICON_PREFIX+"system.png");
-    data.regExp=":app-emulation:";
-    catData.push_back(data);
-    data.name=tr("Compat 32");
-    data.icon=QIcon(ICON_PREFIX+"system.png");
-    data.regExp=":compat32:";
-    catData.push_back(data);
-    data.name=tr("Console applications");
-    data.icon=QIcon(ICON_PREFIX+"terminal.png");
-    data.regExp=":console:";
-    catData.push_back(data);
-    data.name=tr("Development");
-    data.icon=QIcon(ICON_PREFIX+"development.png");
-    data.regExp=":dev";
-    catData.push_back(data);
-    data.name=tr("Drivers");
-    data.icon=QIcon(ICON_PREFIX+"drivers.png");
-    data.regExp=":drivers:";
-    catData.push_back(data);
-    data.name=tr("Games");
-    data.icon=QIcon(ICON_PREFIX+"games.png");
-    data.regExp=":games:";
-    catData.push_back(data);
-    data.name=tr("Gnome");
-    data.icon=QIcon(ICON_PREFIX+"logo-gnome.png");
-    data.regExp=":gnome:";
-    catData.push_back(data);
-    data.name=tr("KDE");
-    data.icon=QIcon(ICON_PREFIX+"logo-kde.png");
-    data.regExp=":kde";
-    catData.push_back(data);
-    data.name=tr("LXDE");
-    data.icon=QIcon(ICON_PREFIX+"logo-lxde.png");
-    data.regExp=":lxde:";
-    catData.push_back(data);
-    data.name=tr("Mail");
-    data.icon=QIcon(ICON_PREFIX+"mail.png");
-    data.regExp=":mail";
-    catData.push_back(data);
-    data.name=tr("Fonts");
-    data.icon=QIcon(ICON_PREFIX+"fonts.png");
-    data.regExp="fonts";
-    catData.push_back(data);
-    data.name=tr("Graphics");
-    data.icon=QIcon(ICON_PREFIX+"graphics.png");
-    data.regExp=":media-gfx:";
-    catData.push_back(data);
-    data.name=tr("Sound");
-    data.icon=QIcon(ICON_PREFIX+"audio.png");
-    data.regExp="sound";
-    catData.push_back(data);
-    data.name=tr("Network");
-    data.icon=QIcon(ICON_PREFIX+"internet.png");
-    data.regExp=":network:";
-    catData.push_back(data);
-    data.name=tr("Proprietary");
-    data.icon=QIcon(ICON_PREFIX+"proprietary.png");
-    data.regExp=":proprietary:";
-    catData.push_back(data);
-    data.name=tr("Science");
-    data.icon=QIcon(ICON_PREFIX+"science.png");
-    data.regExp=":school:";
-    catData.push_back(data);
-    data.name=tr("Server");
-    data.icon=QIcon(ICON_PREFIX+"server.png");
-    data.regExp=":server:";
-    catData.push_back(data);
-    data.name=tr("Kernel");
-    data.icon=QIcon(ICON_PREFIX+"logo-linux.png");
-    data.regExp="kernel";
-    catData.push_back(data);
-    data.name=tr("System");
-    data.icon=QIcon(ICON_PREFIX+"system.png");
-    data.regExp="sys-";
-    catData.push_back(data);
-    data.name=tr("Themes");
-    data.icon=QIcon(ICON_PREFIX+"theme.png");
-    data.regExp=":themes:";
-    catData.push_back(data);
-    data.name=tr("Utils");
-    data.icon=QIcon(ICON_PREFIX+"system.png");
-    data.regExp="utils";
-    catData.push_back(data);
-    data.name=tr("XFCE");
-    data.icon=QIcon(ICON_PREFIX+"logo-xfce.png");
-    data.regExp="xfce";
+    data.name=cat_name;
+    data.icon=QIcon(ICON_PREFIX+cat_ico+".png");
+    data.tagList=cat_tags.size()? cat_tags.split(",") : QStringList();
+    data.stateList=cat_state.size()? cat_state.split(",") : QStringList();
     catData.push_back(data);
 }
 
@@ -401,10 +378,10 @@ QVariant CategoryModel::data(const QModelIndex &index, int role) const
                 value=catData[index.row()].name;
                 break;
             case 1:
-                value=catData[index.row()].regExp;
+                value=catData[index.row()].tagList;
                 break;
             case 2:
-                value=catData[index.row()].filterKeyColumn;
+                value=catData[index.row()].stateList;
                 break;
             default:
                 value=QVariant();

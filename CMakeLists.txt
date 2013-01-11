@@ -35,7 +35,7 @@ SET(apackager_SRC
 	mpkgengine.cpp
 	commitdialog.cpp
 	progresswidget.cpp
-	settings.cpp
+	mpkgsettings.cpp
 	mpkghandler.cpp
 	mpkgmodel.cpp
 	mpkgthread.cpp
@@ -46,7 +46,7 @@ SET(apackager_MOC_HDR
 	mpkgengine.h
 	commitdialog.h
 	progresswidget.h
-	settings.h
+	mpkgsettings.h
 	mpkghandler.h
 	mpkgmodel.h
 	mpkgthread.h
@@ -57,7 +57,7 @@ SET(apackager_UI
 	mainwindow.ui
 	commitdialog.ui
 	progresswidget.ui
-	settings.ui
+	mpkgsettings.ui
 )
 SET(apackager_QRC
 	resources.qrc

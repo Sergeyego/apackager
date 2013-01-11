@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>990</width>
-    <height>690</height>
+    <width>988</width>
+    <height>688</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -62,6 +62,9 @@
       </property>
       <widget class="QWidget" name="layoutWidget">
        <layout class="QVBoxLayout" name="verticalLayout_2">
+        <item>
+         <widget class="QComboBox" name="comboBoxDistr"/>
+        </item>
         <item>
          <widget class="QListView" name="tagView">
           <property name="iconSize">
@@ -276,8 +279,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>990</width>
-     <height>24</height>
+     <width>988</width>
+     <height>20</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuMPKG">
@@ -325,7 +328,7 @@
     <property name="title">
      <string>Help</string>
     </property>
-    <addaction name="actionAbaut"/>
+    <addaction name="actionAbout"/>
    </widget>
    <addaction name="menuMPKG"/>
    <addaction name="menuRopositories"/>
@@ -558,7 +561,7 @@
     <string>Clean cache</string>
    </property>
   </action>
-  <action name="actionAbaut">
+  <action name="actionAbout">
    <property name="text">
     <string>About</string>
    </property>
