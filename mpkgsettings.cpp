@@ -1,16 +1,23 @@
 #include "mpkgsettings.h"
 #include "ui_mpkgsettings.h"
 
-MpkgSettings::MpkgSettings(MpkgEngine *engine, QWidget *parent) :
+MpkgSettings::MpkgSettings(MpkgEngine *engine, CategoryModel *model, QWidget *parent) :
     QDialog(parent),
     ui(new Ui::MpkgSettings)
 {
     ui->setupUi(this);
     mpkg=engine;
+    categoryModel=model;
+    proxyCategoryModel = new ProxyCategoryModel(this);
+    proxyCategoryModel->setSourceModel(categoryModel);
     ui->listWidgetSettingsCategory->addItem(new QListWidgetItem(QIcon(":/icons/internet.png"),tr("Repositories")));
     ui->listWidgetSettingsCategory->addItem(new QListWidgetItem(QIcon(":/icons/settings.png"),tr("Mpkg core settings")));
-    ui->listWidgetSettingsCategory->addItem(new QListWidgetItem(QIcon(":/icons/applications-system.png"),tr("Update blacklist")));
-    ui->listWidgetSettingsCategory->addItem(new QListWidgetItem(QIcon(":/icons/applications-system.png"),tr("Remove blacklist")));
+    ui->listWidgetSettingsCategory->addItem(new QListWidgetItem(QIcon(":/icons/list.png"),tr("Update blacklist")));
+    ui->listWidgetSettingsCategory->addItem(new QListWidgetItem(QIcon(":/icons/list.png"),tr("Remove blacklist")));
+    ui->listWidgetSettingsCategory->addItem(new QListWidgetItem(QIcon(":/icons/accessories.png"),tr("Categories")));
+    ui->listViewCategories->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    ui->listViewCategories->setModel(proxyCategoryModel);
+    ui->listViewCategories->setModelColumn(3);
     ui->listWidgetSettingsCategory->setCurrentRow(0);
     QStringList downloadTools;
     downloadTools<<"aria2"<<"mpkg"<<"wget";
@@ -22,6 +29,10 @@ MpkgSettings::MpkgSettings(MpkgEngine *engine, QWidget *parent) :
     connect(mpkg,SIGNAL(sigUpdRep()),this,SLOT(refreshRepView()));
     connect(ui->cmdAddUpdateBlacklist,SIGNAL(clicked()),this,SLOT(addUpdateBlacklist()));
     connect(ui->cmdAddRemoveBlacklist,SIGNAL(clicked()),this,SLOT(addRemoveProtected()));
+    connect(ui->cmdAddCategory,SIGNAL(clicked()),this,SLOT(addCategory()));
+    connect(ui->cmdRemoveCaterory,SIGNAL(clicked()),this,SLOT(removeCategory()));
+    connect(ui->cmdEditCategory,SIGNAL(clicked()),this,SLOT(edtCategory()));
+    connect(ui->listViewCategories,SIGNAL(doubleClicked(QModelIndex)),this,SLOT(edtCategory()));
 }
 
 MpkgSettings::~MpkgSettings()
@@ -55,6 +66,7 @@ void MpkgSettings::save()
     for (int i=0; i<ui->listWidgetRemoveBlacklist->count(); ++i)
         removeBL.push_back(ui->listWidgetRemoveBlacklist->item(i)->text());
     mpkg->setBlacklists(updateBL, removeBL);
+    categoryModel->commit();
 }
 
 void MpkgSettings::refreshRepView()
@@ -90,6 +102,33 @@ void MpkgSettings::addUpdateBlacklist()
     ui->listWidgetUpdateBlacklist->addItem(ui->lineEditAddUpdateBlacklist->text());
     ui->lineEditAddUpdateBlacklist->clear();
     ui->listWidgetUpdateBlacklist->scrollToBottom();
+}
+
+void MpkgSettings::addCategory()
+{
+    categoryModel->insertRow();
+    ui->listViewCategories->scrollToBottom();
+    ui->listViewCategories->setCurrentIndex(ui->listViewCategories->model()->index(ui->listViewCategories->model()->rowCount()-1,3));
+}
+
+void MpkgSettings::removeCategory()
+{
+    int row=proxyCategoryModel->mapToSource(ui->listViewCategories->currentIndex()).row();
+    if (row<0 || row>=categoryModel->rowCount()) return;
+    int n=QMessageBox::question(NULL,tr("Remove category"),
+                                  tr("Remove ")+categoryModel->data(categoryModel->index(row,3)).toString()+tr("?"),QMessageBox::Yes| QMessageBox::No);
+    if (n==QMessageBox::Yes){
+        categoryModel->removeRow(row);
+    }
+}
+
+void MpkgSettings::edtCategory()
+{
+    QStringList tagsList=mpkg->availableTags();
+    int index=proxyCategoryModel->mapToSource(ui->listViewCategories->currentIndex()).row();
+    if (index<0 || index>=categoryModel->rowCount()) return;
+    EdtCategoryDialog dialog(categoryModel,index,tagsList);
+    dialog.exec();
 }
 
 void MpkgSettings::load()

@@ -1,7 +1,6 @@
 #include "mpkgmodel.h"
-#define ICON_PREFIX QString(":/icons/")
-//QString(INSTALL_PREFIX) + QString("/share/mpkg/apackager/icons/")
-//QString(":/icons/")
+//#define ICON_PREFIX QString(":/icons/")
+#define ICON_PREFIX QString(INSTALL_PREFIX) + QString("/share/mpkg/apackager/icons/")
 
 MpkgModel::MpkgModel(MpkgEngine *engine, QObject *parent) :
     QAbstractTableModel(parent)
@@ -62,10 +61,10 @@ QVariant MpkgModel::data(const QModelIndex &index, int role) const
             value=mpkg->cacheBase[index.row()].state;
             break;
         case 5:
-            value=mpkg->cacheBase[index.row()].info;
+            value=mpkg->getPkgInfo(index.row());
             break;
         case 6:
-            value=mpkg->cacheBase[index.row()].dependency;
+            value=mpkg->getPkgDependencies(index.row());
             break;
         case 7:
             value=mpkg->cacheBase[index.row()].packageDistroVersion;
@@ -231,27 +230,10 @@ void MpkgProxyModel::setRepositoryFilter(QString rep)
 TagsModel::TagsModel(MpkgEngine *engine, QObject *parent):QAbstractTableModel(parent)
 {
     mpkg=engine;
-    categoryData data;
-
-    data.name=tr("All packages");
-    data.tagList=QStringList();
-    data.stateList=QStringList();
-    bonus.push_back(data);
-
-    data.name=tr("Updates");
-    data.stateList<<QString::number(ICONSTATE_UPDATE);
-    bonus.push_back(data);
-    data.stateList.clear();
-
-    data.name=tr("Installed");
-    data.stateList<<QString::number(ICONSTATE_INSTALLED)<<QString::number(ICONSTATE_INSTALLED_DEPRECATED);
-    bonus.push_back(data);
-    data.stateList.clear();
-
-    data.name=tr("Not installed");
-    data.stateList<<QString::number(ICONSTATE_AVAILABLE)<<QString::number(ICONSTATE_AVAILABLE_DEPRECATED);
-    bonus.push_back(data);
-    data.stateList.clear();
+    addBonus(tr("All packages"),QString());
+    addBonus(tr("Updates"),QString::number(ICONSTATE_UPDATE));
+    addBonus(tr("Installed"),QString::number(ICONSTATE_INSTALLED)+","+QString::number(ICONSTATE_INSTALLED_DEPRECATED));
+    addBonus(tr("Not installed"),QString::number(ICONSTATE_AVAILABLE)+","+QString::number(ICONSTATE_AVAILABLE_DEPRECATED));
 
     connect(mpkg,SIGNAL(updateFinished()),this,SLOT(refresh()));
 }
@@ -281,7 +263,7 @@ QVariant TagsModel::data(const QModelIndex &index, int role) const
         switch(index.column())
         {
             case 0:
-                value=(index.row()<n)? bonus[index.row()].name : tags[index.row()-n];
+            value=(index.row()<n)? bonus[index.row()].name[0] : tags[index.row()-n];
                 break;
             case 1:
                 if (index.row()<n) {
@@ -302,6 +284,15 @@ QVariant TagsModel::data(const QModelIndex &index, int role) const
     return value;
 }
 
+void TagsModel::addBonus(QString name, QString statelist, QString taglist)
+{
+    categoryData data;
+    data.name.push_back(name);
+    data.tagList=taglist.size()? taglist.split(",") : QStringList();
+    data.stateList=statelist.size()? statelist.split(",") : QStringList();
+    bonus.push_back(data);
+}
+
 void TagsModel::refresh()
 {
     tags=mpkg->availableTags();
@@ -310,48 +301,24 @@ void TagsModel::refresh()
 
 CategoryModel::CategoryModel(QObject *parent):QAbstractTableModel(parent)
 {
-    addCategory(tr("All packages"),"applications-system",QString(),QString());
-    addCategory(tr("Updates"),"update",QString(),QString::number(ICONSTATE_UPDATE));
-    addCategory(tr("Installed"),"installed",QString(),QString::number(ICONSTATE_INSTALLED)+","+QString::number(ICONSTATE_INSTALLED_DEPRECATED));
-    addCategory(tr("Not installed"),"available",QString(),QString::number(ICONSTATE_AVAILABLE)+","+QString::number(ICONSTATE_AVAILABLE_DEPRECATED));
-    addCategory(tr("Office"),"office","app-office",QString());
-    addCategory(tr("Emulations"),"system","app-emulation",QString());
-    addCategory(tr("Compat 32"),"system","compat32,x86",QString());
-    addCategory(tr("Console applications"),"terminal","console",QString());
-    addCategory(tr("Development"),"development","develop",QString());
-    addCategory(tr("Drivers"),"drivers","drivers",QString());
-    addCategory(tr("Games"),"games","games",QString());
-    addCategory(tr("Gnome"),"logo-gnome","gnome",QString());
-    addCategory(tr("KDE"),"logo-kde","kde4,kdei,kdel10n",QString());
-    addCategory(tr("LXDE"),"logo-lxde","lxde",QString());
-    addCategory(tr("Mail"),"mail","mail-client,mail-mta",QString());
-    addCategory(tr("Fonts"),"fonts","media-fonts",QString());
-    addCategory(tr("Graphics"),"graphics","media-gfx",QString());
-    addCategory(tr("Sound"),"audio","media-sound",QString());
-    addCategory(tr("Network"),"internet","network",QString());
-    addCategory(tr("Proprietary"),"proprietary","proprietary",QString());
-    addCategory(tr("Science"),"science","school",QString());
-    addCategory(tr("Server"),"server","server",QString());
-    addCategory(tr("Kernel"),"logo-linux","sys-kernel",QString());
-    addCategory(tr("System"),"system","sys-apps,sys-auth,sys-base,sys-boot,sys-devel,sys-fs,sys-kernel,sys-libs,sys-pkgtools,sys-power,sys-process",QString());
-    addCategory(tr("Themes"),"theme","themes",QString());
-    addCategory(tr("Utils"),"system","utils",QString());
-    addCategory(tr("XFCE"),"logo-xfce","xfce",QString());
+    refresh();
 }
 
-void CategoryModel::addCategory(QString cat_name, QString cat_ico, QString cat_tags, QString cat_state)
+void CategoryModel::addCategory(QString cat_name, QString cat_name_local, QString cat_ico, QString cat_tags, QString cat_state)
 {
-    categoryData data;
-    data.name=cat_name;
-    data.icon=QIcon(ICON_PREFIX+cat_ico+".png");
-    data.tagList=cat_tags.size()? cat_tags.split(",") : QStringList();
-    data.stateList=cat_state.size()? cat_state.split(",") : QStringList();
-    catData.push_back(data);
+    QMap <QString, QString> map;
+    map["name[en]"]=cat_name;
+    map["name"+getLocale()]=cat_name_local;
+    map["tags"]=cat_tags;
+    map["icon"]=cat_ico;
+    map["state"]=cat_state;
+    catData.push_back(map);
 }
 
 Qt::ItemFlags CategoryModel::flags(const QModelIndex &index) const
 {
-    return (index.isValid())? Qt::ItemIsSelectable | Qt::ItemIsEnabled : Qt::ItemIsEnabled;
+    return (index.column()==1 || index.column()==3 || index.column()==4)?
+                (Qt::ItemIsEnabled | Qt::ItemIsEditable | Qt::ItemIsSelectable) : (Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 }
 
 int CategoryModel::rowCount(const QModelIndex &parent) const
@@ -361,34 +328,241 @@ int CategoryModel::rowCount(const QModelIndex &parent) const
 
 int CategoryModel::columnCount(const QModelIndex &parent) const
 {
-    return 3;
+    return 5;
+}
+
+QString CategoryModel::getLocale() const
+{
+    QLocale lc;
+    QString namelc=lc.name();
+    namelc.truncate(namelc.indexOf("_"));
+    namelc.push_front("[");
+    namelc.push_back("]");
+    return namelc;
 }
 
 QVariant CategoryModel::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid()) return QVariant();
-    if (role==Qt::DecorationRole && index.column()==0){
-        return catData[index.row()].icon;
+    if (role==Qt::DecorationRole && (index.column()==0 || index.column()==3)){
+        return QIcon(ICON_PREFIX+catData[index.row()].value("icon")+".png");
     }
     QVariant value;
     if ((role==Qt::DisplayRole)||(role==Qt::EditRole)){
         switch(index.column())
         {
             case 0:
-                value=catData[index.row()].name;
+            {
+                QString localName=catData[index.row()].value("name"+getLocale());
+                value=localName.isNull()? catData[index.row()].value("name[en]") : localName;
                 break;
+            }
             case 1:
-                value=catData[index.row()].tagList;
+            {
+                QString tags=catData[index.row()].value("tags");
+                value=tags.size()? tags.split(",") : QStringList();
                 break;
+            }
             case 2:
-                value=catData[index.row()].stateList;
+            {
+                QString state=catData[index.row()].value("state");
+                value=state.size()? state.split(",") : QStringList();
                 break;
+            }
+            case 3:
+            {
+                value=catData[index.row()].value("name[en]");
+                break;
+            }
+            case 4:
+            {
+                QStringList translationList;
+                QMap<QString, QString> map=catData[index.row()];
+                QMap<QString, QString>::const_iterator i = map.constBegin();
+                while (i != map.constEnd()) {
+                    QString key=i.key();
+                    if (key.contains(QRegExp("name\\[[^\\]]*\\]$")) && key!="name[en]"){
+                        translationList.push_back(key.replace("name","")+i.value());
+                    }
+                    ++i;
+                }
+                value=translationList;
+                break;
+            }
             default:
                 value=QVariant();
                 break;
         }
     }
     return value;
+}
+
+bool CategoryModel::setData(const QModelIndex &index, const QVariant &value, int role)
+{
+    if (role==Qt::DecorationRole && index.column()==0){
+        catData[index.row()]["icon"]=value.toString();
+    }
+    bool result(true);
+    if (role==Qt::EditRole){
+        switch (index.column()){
+            case 1:
+            {
+                QString str;
+                QStringList tags=value.toStringList();
+                for (int i=0; i<tags.size(); ++i) str.push_back(tags.at(i)+",");
+                str.truncate(str.size()-1);
+                catData[index.row()]["tags"]=str;
+                break;
+            }
+            case 3:
+            {
+                bool findName(false);
+                int i(0);
+                while (i<catData.size()&& !findName){
+                    findName=(catData.at(i).value("name[en]")==value.toString())&& i!=index.row();
+                    ++i;
+                }
+                if (!findName){
+                    catData[index.row()]["name[en]"]=value.toString();
+                } else {
+                    result=false;
+                    emit sigError(tr("Category with the same name already exists"));
+                }
+                break;
+            }
+            case 4:
+            {
+                QStringList str=value.toStringList();
+                QRegExp reg("^[ ]*(\\[[^\\]]+\\])([^\\]]+)$");
+                QMap<QString, QString>::const_iterator iter = catData[index.row()].constBegin();
+                while (iter != catData[index.row()].constEnd()) {
+                    QString key=iter.key();
+                    if (key.contains(QRegExp("name\\[[^\\]]*\\]$")) && key!="name[en]"){
+                        catData[index.row()].remove(key);
+                    }
+                    ++iter;
+                }
+                for (int i=0; i<str.size(); ++i){
+                    if (reg.indexIn(str.at(i))!=-1){
+                        QString lang=reg.cap(1);
+                        QString val=reg.cap(2);
+                        //qDebug()<<"LANG= "<<lang<<"VAL= "<<val;
+                        if (lang!="[en]") catData[index.row()]["name"+lang]=val;
+                    }
+                }
+                break;
+            }
+            default:
+                return false;
+                break;
+        }
+    } else
+        return false;
+    emit dataChanged(index,index);
+    return result;
+}
+
+void CategoryModel::insertRow()
+{
+    int n(0);
+    int i(0);
+    bool findName(false);
+    do {
+        n++;
+        i=0;
+        findName=false;
+        while (i<catData.size()&& !findName){
+            findName=(catData.at(i).value("name[en]")=="New category-"+QString::number(n));
+            ++i;
+        }
+    } while(findName);
+    addCategory("New category-"+QString::number(n),tr("New category")+"-"+QString::number(n),"applications-system",QString(),QString());
+    reset();
+}
+
+bool CategoryModel::removeRow(int row, const QModelIndex &parent)
+{
+    if (row<0 || row>=catData.size()) return false;
+    catData.remove(row,1);
+    reset();
+    return true;
+}
+
+void CategoryModel::refresh()
+{
+    catData.clear();
+    addCategory(" All packages"," "+tr("All packages"),"applications-system",QString(),QString());
+    addCategory(" Updates"," "+tr("Updates"),"update",QString(),QString::number(ICONSTATE_UPDATE));
+    addCategory(" Installed"," "+tr("Installed"),"installed",QString(),QString::number(ICONSTATE_INSTALLED)+","+QString::number(ICONSTATE_INSTALLED_DEPRECATED));
+    addCategory(" Not installed"," "+tr("Not installed"),"available",QString(),QString::number(ICONSTATE_AVAILABLE)+","+QString::number(ICONSTATE_AVAILABLE_DEPRECATED));
+    QDir dir("/etc/apackager/categories.d");
+    QMap <QString, QString> map;
+    QStringList filters;
+    filters << "*.conf";
+    QStringList files = dir.entryList(filters);
+    for (int k=0; k<files.size(); ++k){
+        map.clear();
+        QFile file(dir.path()+"/"+files.at(k));
+        file.open(QIODevice::ReadOnly | QIODevice::Text);
+        QTextStream in(&file);
+        in.setCodec(QTextCodec::codecForName("UTF8"));
+        while(!in.atEnd()){
+            QString str=in.readLine();
+            QRegExp reg("^[ ]*([^= ]*)[ ]*=([^=]*)$");
+            if (reg.indexIn(str)!=-1){
+                QString param=reg.cap(1);
+                QString val=reg.cap(2);
+                param=param.toLower();
+                val.remove(QRegExp("^[ ]*|[ ]$"));
+                if (param=="tags") val.replace(" ","");
+                map[param]=val;
+                //qDebug()<<"param: "<<param<<" value: "<<val;
+            }
+        }
+        file.close();
+        catData.push_back(map);
+    }
+    reset();
+}
+
+void CategoryModel::commit()
+{
+    QDir dir("/etc/apackager/categories.d");
+    if (!dir.exists()) dir.mkdir(dir.path());
+    QStringList filters;
+    filters << "*.conf";
+    QStringList files = dir.entryList(filters);
+    for (int k=0; k<files.size(); ++k)
+        dir.remove(files.at(k));
+    for (int i=4; i<rowCount(); ++i){
+        QString catName=catData[i].value("name[en]").toLower();
+        catName.replace(" ","_");
+        QFile file(dir.path()+"/"+catName+".conf");
+        file.open(QIODevice::WriteOnly | QIODevice::Text);
+        QTextStream out(&file);
+        out.setCodec(QTextCodec::codecForName("UTF8"));
+        QMap<QString, QString>::const_iterator iter = catData.at(i).constBegin();
+        while (iter != catData.at(i).constEnd()) {
+            QString key=iter.key();
+            if (key!="state"){
+                if (key.size()) key=key.toUpper();
+                out<<key<<" = "<<iter.value()<<"\n";
+            }
+            ++iter;
+        }
+        file.close();
+    }
+    refresh();
+}
+
+QString CategoryModel::getIconPrefix()
+{
+    return ICON_PREFIX;
+}
+
+QString CategoryModel::getIconName(const QModelIndex &index)
+{
+    return catData[index.row()].value("icon");
 }
 
 MpkgSearchModel::MpkgSearchModel(QObject *parent):QSortFilterProxyModel(parent)
@@ -398,4 +572,13 @@ MpkgSearchModel::MpkgSearchModel(QObject *parent):QSortFilterProxyModel(parent)
 bool MpkgSearchModel::filterAcceptsColumn(int source_column, const QModelIndex &source_parent) const
 {
     return !(source_column>2);
+}
+
+ProxyCategoryModel::ProxyCategoryModel(QObject *parent):QSortFilterProxyModel(parent)
+{
+}
+
+bool ProxyCategoryModel::filterAcceptsRow(int source_row, const QModelIndex &source_parent) const
+{
+    return !(source_row<4);
 }

@@ -46,6 +46,9 @@ MainWindow::MainWindow(QWidget *parent) :
 
     tagsModel = new TagsModel(engine,this);
     categoryModel = new CategoryModel(this);
+    sortCategoryModel = new QSortFilterProxyModel(this);
+    sortCategoryModel->setSourceModel(categoryModel);
+    sortCategoryModel->sort(0);
     setTagsModel();
     ui->comboBoxFilter->addItems(pkgModel->headerList());
 
@@ -94,7 +97,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::about()
 {
-    QString text="<b><big>Apackager</b></big> version 1.0 beta1 <br>"+tr("AgiliaLinux package management system: GUI front-end")+
+    QString text="<b><big>Apackager</b></big> version 1.0 beta2 <br>"+tr("AgiliaLinux package management system: GUI front-end")+
             "<br>"+tr("Licensed under GPLv2")+"<br>"+ tr("Authors:")+" sergen, aix27249";
     QMessageBox::about(this,tr("about"),text);
 }
@@ -112,6 +115,7 @@ void MainWindow::loadSettings() {
     QSettings settings("MpkgGUI", "mpkgmanager");
     this->restoreGeometry(settings.value("geometry").toByteArray());
     this->restoreState(settings.value("state").toByteArray());
+    this->ui->splitter->restoreState(settings.value("widthCat").toByteArray());
     ui->actionPackage_info->setChecked(!ui->dockWidgetPackageInfo->isHidden());
     ui->actionDependency->setChecked(!ui->dockWidgetDependency->isHidden());
     ui->actionToolbar->setChecked(!ui->toolBar->isHidden());
@@ -121,6 +125,10 @@ void MainWindow::saveSettings() {
     QSettings settings("MpkgGUI", "mpkgmanager");
     settings.setValue("state", this->saveState());
     settings.setValue("geometry", this->saveGeometry());
+    settings.setValue("width0",ui->pkgView->columnWidth(0));
+    settings.setValue("width1",ui->pkgView->columnWidth(1));
+    settings.setValue("width2",ui->pkgView->columnWidth(2));
+    settings.setValue("widthCat",ui->splitter->saveState());
 }
 
 QModelIndex MainWindow::sourcePkgIndex(QModelIndex index)
@@ -190,10 +198,12 @@ void MainWindow::chFilterColumn()
 
 void MainWindow::showSettings()
 {
-    MpkgSettings settings(engine);
+    MpkgSettings settings(engine, categoryModel);
     if (settings.exec()==QDialog::Accepted){
         settings.save();
         pkgProxyModel->setBlacklist(engine->updateBlackList());
+    } else {
+        categoryModel->refresh();
     }
 }
 
@@ -211,9 +221,10 @@ void MainWindow::updateFinishedSlot()
     if (!ui->pkgView->model()) {
         ui->pkgView->setModel(pkgSearchModel);
         connect(ui->pkgView->selectionModel(),SIGNAL(currentRowChanged(QModelIndex,QModelIndex)),this,SLOT(refreshPkgInfo(QModelIndex)));
-        ui->pkgView->setColumnWidth(0,200);
-        ui->pkgView->setColumnWidth(1,100);
-        ui->pkgView->setColumnWidth(2,200);
+        QSettings settings("MpkgGUI", "mpkgmanager");
+        ui->pkgView->setColumnWidth(0,settings.value("width0").toInt()? settings.value("width0").toInt() : 200);
+        ui->pkgView->setColumnWidth(1,settings.value("width1").toInt()? settings.value("width1").toInt() : 100);
+        ui->pkgView->setColumnWidth(2,settings.value("width2").toInt()? settings.value("width2").toInt() : 200);
     }
     ui->comboBoxDistr->clear();
     ui->comboBoxDistr->addItem(tr("All repositories"));
@@ -285,7 +296,7 @@ void MainWindow::setTagsModel()
     if (ui->radioButtonTags->isChecked()){
         ui->tagView->setModel(tagsModel);
     } else if (ui->radioButtonCategory->isChecked()) {
-       ui->tagView->setModel(categoryModel);
+       ui->tagView->setModel(sortCategoryModel);
     }
     if (ui->tagView->model())
         connect(ui->tagView->selectionModel(),SIGNAL(currentRowChanged(QModelIndex,QModelIndex)),this,SLOT(pkgTagsFilter(QModelIndex)));
@@ -303,7 +314,7 @@ void MainWindow::showError(QString title, QString text, QString details)
 
 void MainWindow::openFile()
 {
-    QStringList files=QFileDialog::getOpenFileNames(this, tr("Open File"),"/",tr("Packages *.txz(*.txz)"));
+    QStringList files=QFileDialog::getOpenFileNames(this, tr("Open File"),"/",tr("Packages *.txz, *.tgz (*.txz, *.tgz)"));
     installFiles(files);
 }
 

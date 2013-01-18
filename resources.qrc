@@ -37,5 +37,12 @@
         <file>icons/edit-clear.png</file>
         <file>icons/office.png</file>
         <file>icons/available-file.png</file>
+        <file>icons/accessories.png</file>
+        <file>icons/desktop-locale.png</file>
+        <file>icons/list.png</file>
+        <file>icons/utilities.png</file>
+        <file>icons/multimedia.png</file>
+        <file>icons/network.png</file>
+        <file>icons/logo-e17.png</file>
     </qresource>
 </RCC>

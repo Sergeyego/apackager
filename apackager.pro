@@ -20,7 +20,8 @@ SOURCES += main.cpp\
     progresswidget.cpp \
     mpkghandler.cpp \
     mpkgthread.cpp \
-    mpkgsettings.cpp
+    mpkgsettings.cpp \
+    edtcategorydialog.cpp
 
 HEADERS  += mainwindow.h \
     mpkgmodel.h \
@@ -29,12 +30,14 @@ HEADERS  += mainwindow.h \
     progresswidget.h \
     mpkghandler.h \
     mpkgthread.h \
-    mpkgsettings.h
+    mpkgsettings.h \
+    edtcategorydialog.h
 
 FORMS    += mainwindow.ui \
     commitdialog.ui \
     progresswidget.ui \
-    mpkgsettings.ui
+    mpkgsettings.ui \
+    edtcategorydialog.ui
 
 INCLUDEPATH += /usr/include/libxml2
 LIBS += -lmpkg

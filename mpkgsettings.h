@@ -3,6 +3,8 @@
 
 #include <QtGui>
 #include "mpkgengine.h"
+#include "mpkgmodel.h"
+#include "edtcategorydialog.h"
 
 namespace Ui {
 class MpkgSettings;
@@ -13,7 +15,7 @@ class MpkgSettings : public QDialog
     Q_OBJECT
     
 public:
-    explicit MpkgSettings(MpkgEngine *engine, QWidget *parent = 0);
+    explicit MpkgSettings(MpkgEngine *engine, CategoryModel *model, QWidget *parent = 0);
     ~MpkgSettings();
     void keyPressEvent(QKeyEvent *p);
 public slots:
@@ -21,6 +23,8 @@ public slots:
 private:
     Ui::MpkgSettings *ui;
     MpkgEngine *mpkg;
+    CategoryModel *categoryModel;
+    ProxyCategoryModel *proxyCategoryModel;
     void load();
     QString toStr(bool val);
 private slots:
@@ -28,6 +32,9 @@ private slots:
     void refreshRepView();
     void addRemoveProtected();
     void addUpdateBlacklist();
+    void addCategory();
+    void removeCategory();
+    void edtCategory();
 };
 
 class SettingsListWidget : public QListWidget

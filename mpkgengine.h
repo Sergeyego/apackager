@@ -27,8 +27,6 @@ typedef struct{
     QString short_discription;    
     QStringList tags;
     int state;
-    QString info;
-    QString dependency;
     QString packageDistroVersion;
 } mpkgPackage;
 
@@ -41,19 +39,21 @@ public:
     ~MpkgEngine();
     QVector<mpkgPackage> cacheBase;
     void updatePkgList();
-    bool pkgIsInstalled(int index);
+    QString getPkgInfo(const int &index) const;
+    QString getPkgDependencies(const int &index) const;
+    bool pkgIsInstalled(const int &index);
     QStringList availableTags();
     QStringList updateBlackList();
     QStringList removeBlacklist();
-    void setBlacklists(QStringList &update, QStringList &remove);
-    bool createQueue(QVector <int> pkgInst, QVector <int> pkgRem);
-    bool createQueue(QStringList &fname);
+    void setBlacklists(const QStringList &update, const QStringList &remove);
+    bool createQueue(const QVector <int> &pkgInst, const QVector <int> &pkgRem);
+    bool createQueue(const QStringList &fname);
     void commitActions();
     void pushErrorButton(int button);
     bool lockDataBase();
     QString createCommitLists(QStringList &install, QStringList &remove, QStringList &upgrade);
     void getRepositoryList(QStringList &enabledRep, QStringList &disabledRep);
-    void setRepositoryList(QStringList &enabledRep, QStringList &disabledRep);
+    void setRepositoryList(const QStringList &enabledRep, const QStringList &disabledRep);
     QString getConfigValue(QString param);
     void setConfigValue(QString param, QString val);
     QStringList pkgDistrList();
@@ -77,8 +77,8 @@ private:
     PACKAGE_LIST packageList;
     QStringList tagsList;
     bool renderDepTrackerData();
-    QStringList toQStringList(vector<string> &str);
-    void fromQStringList(QStringList &qlist, vector<string> &str);
+    QStringList toQStringList(const vector<string> &str);
+    void fromQStringList(const QStringList &qlist, vector<string> &str);
     QStringList packageDistroVersionList;
 };
 

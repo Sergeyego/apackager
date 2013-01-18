@@ -23,7 +23,7 @@ else (CMAKE_SIZEOF_VOID_P EQUAL 4)
 	ADD_DEFINITIONS(-DX86_64)
 endif(CMAKE_SIZEOF_VOID_P EQUAL 4)
 
-ADD_DEFINITIONS(-D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DLARGEFILE64_SOURCE -DDL_CLEANUP -I. -I/usr/include/libxml2 -Wall -W -DNEW_INSTALL_SYSTEM -DUSE_SYSTEM_SED -DDEP_NORMALIZE -DLINUX_DEFINED)
+ADD_DEFINITIONS(-D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -DLARGEFILE64_SOURCE -DDL_CLEANUP -I. -I/usr/include/libxml2 -I/${CMAKE_CURRENT_SOURCE_DIR} -Wall -W -DNEW_INSTALL_SYSTEM -DUSE_SYSTEM_SED -DDEP_NORMALIZE -DLINUX_DEFINED)
 ADD_DEFINITIONS(-DINSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}")
 
 ADD_DEFINITIONS(${CXXFLAGS})
@@ -39,6 +39,7 @@ SET(apackager_SRC
 	mpkghandler.cpp
 	mpkgmodel.cpp
 	mpkgthread.cpp
+	edtcategorydialog.cpp
 )
 # headers for MOC
 SET(apackager_MOC_HDR
@@ -50,6 +51,7 @@ SET(apackager_MOC_HDR
 	mpkghandler.h
 	mpkgmodel.h
 	mpkgthread.h
+	edtcategorydialog.h
 )
 
 # UI
@@ -58,6 +60,7 @@ SET(apackager_UI
 	commitdialog.ui
 	progresswidget.ui
 	mpkgsettings.ui
+	edtcategorydialog.ui
 )
 SET(apackager_QRC
 	resources.qrc

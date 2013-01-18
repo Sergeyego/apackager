@@ -1,7 +1,7 @@
 #include "commitdialog.h"
 #include "ui_commitdialog.h"
 
-CommitDialog::CommitDialog(QStringList &install, QStringList &remove, QStringList &upgrade, QString &info, QWidget *parent) :
+CommitDialog::CommitDialog(const QStringList &install, const QStringList &remove, const QStringList &upgrade, const QString &info, QWidget *parent) :
     QDialog(parent),
     ui(new Ui::CommitDialog)
 {

@@ -7,6 +7,10 @@
 #include <QIcon>
 #include <QDebug>
 #include <QSortFilterProxyModel>
+#include <QDir>
+#include <QFile>
+#include <QTextCodec>
+#include <QVector>
 
 class MpkgModel : public QAbstractTableModel
 {
@@ -73,8 +77,7 @@ public:
 };
 
 typedef struct{
-    QString name;
-    QIcon icon;
+    QStringList name;
     QStringList tagList;
     QStringList stateList;
 } categoryData;
@@ -89,6 +92,7 @@ public:
     int columnCount(const QModelIndex &parent = QModelIndex()) const;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
 private:
+    void addBonus(QString name, QString statelist, QString taglist = QString());
     MpkgEngine *mpkg;
     QVector<categoryData> bonus;
     QStringList tags;
@@ -104,10 +108,30 @@ public:
     Qt::ItemFlags flags(const QModelIndex &index) const;
     int rowCount(const QModelIndex &parent = QModelIndex()) const;
     int columnCount(const QModelIndex &parent = QModelIndex()) const;
+    QString getLocale() const;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
+    bool setData(const QModelIndex &index, const QVariant &value, int role);
+    bool removeRow(int row, const QModelIndex &parent=QModelIndex());
+    void refresh();
+    void commit();
+    QString getIconPrefix();
+    QString getIconName(const QModelIndex &index);
+public slots:
+    void insertRow();
 private:
-    void addCategory(QString cat_name, QString cat_ico, QString cat_tags, QString cat_state);
-    QVector<categoryData> catData;
+    void addCategory(QString cat_name, QString cat_name_local, QString cat_ico, QString cat_tags, QString cat_state);
+    QVector<QMap<QString,QString> > catData;
+signals:
+    void sigError(QString text);
 };
+
+class ProxyCategoryModel : public QSortFilterProxyModel
+{
+    Q_OBJECT
+public:
+    ProxyCategoryModel(QObject *parent = 0);
+    bool filterAcceptsRow(int source_row, const QModelIndex &source_parent) const;
+};
+
 
 #endif // MPKGMODEL_H

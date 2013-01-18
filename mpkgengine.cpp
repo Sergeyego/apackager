@@ -26,34 +26,25 @@ void MpkgEngine::updatePkgList()
     cacheBase.resize(n);
     mpkgPackage pkg;
     vector<string> tags;
-    vector<DEPENDENCY> deps;
-    PACKAGE p;
-    QString linkList;
-    QString tagList;
-    QString info, description;
     int lastIndex, installedIndex;
     int state;
     packageDistroVersionList.clear();
-
     for (unsigned int i=0; i< n; ++i){
-        p=packageList[i];
-        pkg.name=QString::fromStdString(p.get_name());
-        pkg.version=QString::fromStdString(p.get_fullversion());
-        pkg.short_discription=QString::fromStdString(p.get_short_description());
-
+        const PACKAGE *p=&packageList.at(i);
+        pkg.name=QString::fromStdString(p->get_name());
+        pkg.version=QString::fromStdString(p->get_fullversion());
+        pkg.short_discription=QString::fromStdString(p->get_short_description());
         pkg.tags.clear();
-        tagList.clear();
-        tags = p.get_tags();
-        for (unsigned int n=0; n<tags.size(); ++n) {
-            pkg.tags.push_back(QString::fromStdString(tags[n]));
-            tagList.push_back(pkg.tags[n]+" ");
+        tags = p->get_tags();
+        for (vector<string>::iterator it=tags.begin(); it!=tags.end(); ++it) {
+            pkg.tags.push_back(QString::fromStdString(*it));
         }
 
-        lastIndex=packageList.getMaxVersionNumber(p.get_name());
-        installedIndex=packageList.getInstalledVersionNumber(p.get_name());
-        if (p.installed()) {
+        lastIndex=packageList.getMaxVersionNumber(p->get_name());
+        installedIndex=packageList.getInstalledVersionNumber(p->get_name());
+        if (p->installed()) {
             state = ((i==lastIndex)&&(i==installedIndex))? ICONSTATE_INSTALLED : ICONSTATE_INSTALLED_DEPRECATED;
-        } else if (p.available()) {
+        } else if (p->available()) {
             if (installedIndex!=-1) {
                 state = (i==lastIndex)? ICONSTATE_UPDATE : ICONSTATE_AVAILABLE_DEPRECATED;
             } else {
@@ -64,45 +55,63 @@ void MpkgEngine::updatePkgList()
         }
         pkg.state=state;
 
-        pkg.packageDistroVersion=QString::fromStdString(p.package_distro_version);
+        pkg.packageDistroVersion=QString::fromStdString(p->package_distro_version);
         if (packageDistroVersionList.indexOf(pkg.packageDistroVersion)==-1) packageDistroVersionList.push_back(pkg.packageDistroVersion);
 
-        linkList.clear();
-        for (unsigned int n=0; n<p.get_locations().size(); ++n) {
-            linkList.push_back("<a href=\"" + QString::fromStdString(p.get_locations().at(n).get_full_url() + p.get_filename()) + "\">" + QString::fromStdString(p.get_filename()) + "</a><br>");
-        }
-        if (!tagList.isEmpty()) tagList = "<hr><big><b>" + tr("Tags") + ":</b></big> " + tagList;
-        description=QString::fromStdString(p.get_description());
-        if (description.isEmpty()) description=pkg.short_discription;
-        info = ("<b><big>" + pkg.name + " " + pkg.version + "</b></big><hr>" + description + \
-                "<hr><b>" + tr("Package size: ") + "</b>" + QString::fromStdString(humanizeSize(p.get_compressed_size())) + \
-                "<br><b>" + tr("Installed size: ") + "</b>" + QString::fromStdString(humanizeSize(p.get_installed_size())) + \
-                "<br><b>" + tr("Distrib: ") + "</b>" + pkg.packageDistroVersion + \
-                "<br><b>" + tr("Maintainer: ") + "</b>" + QString::fromStdString(p.get_packager()) + \
-                "<br><b>" + tr("File name: ") + "</b>" + QString::fromStdString(p.get_filename()) + \
-                "<br><b>MD5: </b>" + QString::fromStdString(p.get_md5()) +
-                tagList + "<hr><big><b>" + tr("Download links: ") + "</b></big><br>" + linkList);
-        pkg.info=info;
-
-        deps=p.get_dependencies();
-        pkg.dependency.clear();
-        for (unsigned int n=0; n<deps.size(); ++n) {
-            pkg.dependency.push_back(QString::fromStdString(deps.at(n).getDepInfo())+"<br>");
-        }
         cacheBase[i]=pkg;
     }
     vector<string> available_tags;
     core->get_available_tags(&available_tags);
     tagsList.clear();
-    sort(available_tags.begin(), available_tags.end());
     tagsList=toQStringList(available_tags);
+    tagsList.sort();
     packageDistroVersionList.sort();
     qDebug()<<"update finished";
     emit updateFinished();
 }
 
+QString MpkgEngine::getPkgInfo(const int &index) const
+{
+    QString info;
+    const PACKAGE *p=&packageList[index];
+    vector<string> tags=p->get_tags();
+    QString tagList, linkList;
+    vector<LOCATION> loc=p->get_locations();
+    for (vector<string>::iterator it=tags.begin(); it!=tags.end(); ++it) {
+        tagList.push_back(QString::fromStdString((*it)+" "));
+    }
+    if (!tagList.isEmpty()) {
+        tagList.truncate(tagList.size()-1);
+        tagList = "<hr><big><b>" + tr("Tags") + ":</b></big> " + tagList;
+    }
+    for (vector<LOCATION>::iterator it=loc.begin(); it!=loc.end(); ++it) {
+        linkList.push_back("<a href=\"" + QString::fromStdString((*it).get_full_url() + p->get_filename()) + "\">" + QString::fromStdString(p->get_filename()) + "</a><br>");
+    }
+    QString description=(p->get_description().size())? QString::fromStdString(p->get_description()) :
+                                                       QString::fromStdString(p->get_short_description());
+    info = ("<b><big>" + QString::fromStdString(p->get_name()) + " " + QString::fromStdString(p->get_fullversion()) + "</b></big><hr>" + description + \
+            "<hr><b>" + tr("Package size: ") + "</b>" + QString::fromStdString(humanizeSize(p->get_compressed_size())) + \
+            "<br><b>" + tr("Installed size: ") + "</b>" + QString::fromStdString(humanizeSize(p->get_installed_size())) + \
+            "<br><b>" + tr("Distrib: ") + "</b>" + QString::fromStdString(p->package_distro_version) + \
+            "<br><b>" + tr("Maintainer: ") + "</b>" + QString::fromStdString(p->get_packager()) + \
+            "<br><b>" + tr("File name: ") + "</b>" + QString::fromStdString(p->get_filename()) + \
+            "<br><b>MD5: </b>" + QString::fromStdString(p->get_md5()) +
+            tagList + "<hr><big><b>" + tr("Download links: ") + "</b></big><br>" + linkList);
+    return info;
+}
 
-bool MpkgEngine::pkgIsInstalled(int index)
+QString MpkgEngine::getPkgDependencies(const int &index) const
+{
+    vector<DEPENDENCY> deps;
+    deps=packageList.at(index).get_dependencies();
+    QString depList;
+    for (vector<DEPENDENCY>::iterator it=deps.begin(); it!=deps.end(); ++it) {
+        depList.push_back(QString::fromStdString((*it).getDepInfo())+"<br>");
+    }
+    return depList;
+}
+
+bool MpkgEngine::pkgIsInstalled(const int &index)
 {
     return (cacheBase[index].state==ICONSTATE_INSTALLED) || (cacheBase[index].state==ICONSTATE_INSTALLED_DEPRECATED);
 }
@@ -123,16 +132,16 @@ void MpkgEngine::cleanCache()
     core->clean_cache();
 }
 
-bool MpkgEngine::createQueue(QVector <int> pkgInst, QVector <int> pkgRem)
+bool MpkgEngine::createQueue(const QVector <int> &pkgInst, const QVector <int> &pkgRem)
 {
     PACKAGE_LIST tmpIQueue, tmpRQueue;
 
-    for (unsigned int i=0; i<pkgInst.size(); ++i){
-        tmpIQueue.add(packageList[pkgInst[i]]);
+    for (QVector<int>::const_iterator it=pkgInst.constBegin(); it!=pkgInst.constEnd(); ++it){
+        tmpIQueue.add(packageList.at(*it));
     }
 
-    for (unsigned int i=0; i<pkgRem.size(); ++i){
-        tmpRQueue.add(packageList[pkgRem[i]]);
+    for (QVector<int>::const_iterator it=pkgRem.constBegin(); it!=pkgRem.constEnd(); ++it){
+        tmpRQueue.add(packageList.at(*it));
     }
 
     _abortActions=false;
@@ -142,13 +151,13 @@ bool MpkgEngine::createQueue(QVector <int> pkgInst, QVector <int> pkgRem)
     return renderDepTrackerData();
 }
 
-bool MpkgEngine::createQueue(QStringList &fname)
+bool MpkgEngine::createQueue(const QStringList &fname)
 {
     vector<string> pkg, errors;
     QString errText;
     _abortActions=false;
     resetQueue();
-    for (int i=0; i<fname.size(); ++i) pkg.push_back(fname.at(i).toStdString());
+    fromQStringList(fname,pkg);
     core->install(pkg, NULL, NULL, &errors);
     if (errors.size()) {
         for (int i=0; i<errors.size(); ++i) errText.push_back(QString::fromStdString(errors[i])+" ");
@@ -214,19 +223,21 @@ bool MpkgEngine::renderDepTrackerData()
     return ret;
 }
 
-QStringList MpkgEngine::toQStringList(vector<string> &str)
+QStringList MpkgEngine::toQStringList(const vector<string> &str)
 {
     QStringList list;
-    for (unsigned int i=0; i<str.size(); ++i)
-        list.push_back(QString::fromStdString(str.at(i)));
+    vector<string>::const_iterator it;
+    for(it = str.begin(); it != str.end(); ++it)
+        list.push_back(QString::fromStdString(*it));
     return list;
 }
 
-void MpkgEngine::fromQStringList(QStringList &qlist, vector<string> &str)
+void MpkgEngine::fromQStringList(const QStringList &qlist, vector<string> &str)
 {
     str.clear();
-    for (unsigned int i=0; i<qlist.size(); ++i)
-        str.push_back(qlist.at(i).toStdString());
+    QStringList::const_iterator it;
+    for (it = qlist.constBegin(); it != qlist.constEnd(); ++it)
+        str.push_back((*it).toStdString());
 }
 
 QStringList MpkgEngine::updateBlackList()
@@ -241,7 +252,7 @@ QStringList MpkgEngine::removeBlacklist()
     return toQStringList(blacklist);
 }
 
-void MpkgEngine::setBlacklists(QStringList &update, QStringList &remove)
+void MpkgEngine::setBlacklists(const QStringList &update, const QStringList &remove)
 {
     vector<string> updateBL, removeBL;
     fromQStringList(update,updateBL);
@@ -298,7 +309,7 @@ void MpkgEngine::getRepositoryList(QStringList &enabledRep, QStringList &disable
     disabledRep=toQStringList(disabledRepositories);
 }
 
-void MpkgEngine::setRepositoryList(QStringList &enabledRep, QStringList &disabledRep)
+void MpkgEngine::setRepositoryList(const QStringList &enabledRep, const QStringList &disabledRep)
 {
     vector<string> enabled, disabled;
     fromQStringList(enabledRep,enabled);

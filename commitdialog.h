@@ -12,7 +12,7 @@ class CommitDialog : public QDialog
     Q_OBJECT
     
 public:
-    explicit CommitDialog(QStringList &install, QStringList &remove, QStringList &upgrade, QString &info, QWidget *parent = 0);
+    explicit CommitDialog(const QStringList &install, const QStringList &remove, const QStringList &upgrade, const QString &info, QWidget *parent = 0);
     ~CommitDialog();
     
 private:

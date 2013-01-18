@@ -39,6 +39,7 @@ private:
     QModelIndex sourcePkgIndex(QModelIndex index);
     TagsModel *tagsModel;
     CategoryModel *categoryModel;
+    QSortFilterProxyModel *sortCategoryModel;
     QDataWidgetMapper *mapper;
     void runCommit();
 
